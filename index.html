@@ -81,7 +81,6 @@
   }
   .chip:active { transform: scale(0.95); }
 
-  /* ← فقط این بخش تغییر کرد: رینگ کهربایی اشاره به چراغ‌های FJ */
   .chip.selected {
     background: #8d6e63;
     border-color: #8d6e63;
@@ -168,16 +167,13 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ---------- تم ظریف FJ Cruiser ---------- */
-  .fj-hero {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 0.5rem;
-  }
-  .fj-icon {
-    width: 110px;
-    height: auto;
-    filter: drop-shadow(0 4px 10px rgba(109, 76, 65, 0.12));
+  /* عنوان خوش‌آمدگویی جایگزین ماشین */
+  .eyval-title {
+    font-size: 1.9rem;
+    text-align: center;
+    margin: 0 0 1.5rem;
+    color: #6d4c41;
+    letter-spacing: 1px;
   }
 </style>
 </head>
@@ -204,32 +200,8 @@
     <!-- صفحه ۲: جزئیات -->
     <div class="screen" id="screen-details">
 
-      <!-- ← آیکون ظریف FJ Cruiser (سقف سفید + چراغ‌های گرد) -->
-      <div class="fj-hero">
-        <svg class="fj-icon" viewBox="0 0 120 64" aria-hidden="true">
-          <!-- سقف سفید ikonik FJ -->
-          <rect x="22" y="7" width="76" height="17" rx="4"
-                fill="#fbfaf7" stroke="#c9b8ac" stroke-width="1.5"/>
-          <!-- بدنه -->
-          <rect x="14" y="23" width="92" height="28" rx="5" fill="#8d6e63"/>
-          <!-- شیشه جلو -->
-          <rect x="30" y="26" width="60" height="10" rx="2.5"
-                fill="#a1887f" opacity="0.5"/>
-          <!-- چراغ‌های گرد جلو -->
-          <circle cx="28" cy="42" r="7" fill="#fbfaf7" stroke="#4a3b32" stroke-width="2"/>
-          <circle cx="92" cy="42" r="7" fill="#fbfaf7" stroke="#4a3b32" stroke-width="2"/>
-          <!-- درخشش کهربایی (راهنما) -->
-          <circle cx="28" cy="42" r="2.5" fill="#d18a3a"/>
-          <circle cx="92" cy="42" r="2.5" fill="#d18a3a"/>
-          <!-- توری جلو -->
-          <rect x="46" y="39" width="28" height="2" rx="1" fill="#4a3b32" opacity="0.4"/>
-          <rect x="46" y="45" width="28" height="2" rx="1" fill="#4a3b32" opacity="0.4"/>
-          <!-- سپر -->
-          <rect x="12" y="51" width="96" height="6" rx="3" fill="#6d4c41"/>
-        </svg>
-      </div>
-
-      <h2> ;) </h2>
+      <!-- ← جای ماشین: ایول -->
+      <h2 class="eyval-title">ایول</h2>
 
       <div class="step">
         <label class="step-label">چه روزی وقت داری؟ </label>
@@ -481,9 +453,21 @@
     let noBtnIsFloating = false;
     let lastMoveTime = 0;
 
+    const MAX_MOVES = 3;   // فقط ۳ بار فرار می‌کنه
+    let moveCount = 0;     // تعداد دفعاتی که تا حالا جابه‌جا شده
+
+    // وقتی برای بار چهارم جابه‌جا نشد، کاربر می‌تونه «نه» رو بزنه
+    function goToNoScreen() {
+      noBtn.style.display = 'none';
+      showScreen('screen-no');
+    }
+
+    // خروجی: true یعنی جابه‌جا شد (یا در حال فرار)، false یعنی دیگه فرار نمی‌کنه
     function moveNoButton() {
+      if (moveCount >= MAX_MOVES) return false;
+
       const now = Date.now();
-      if (now - lastMoveTime < 80) return;
+      if (now - lastMoveTime < 80) return true;
       lastMoveTime = now;
 
       if (!noBtnIsFloating) {
@@ -528,19 +512,31 @@
       noBtn.style.left = randomX + 'px';
       noBtn.style.top = randomY + 'px';
       noBtn.style.transform = `rotate(${(Math.random() - 0.5) * 20}deg)`;
+
+      moveCount++;
+      return true;
     }
 
-    noBtn.addEventListener('mouseenter', moveNoButton);
+    noBtn.addEventListener('mouseenter', () => {
+      moveNoButton();
+    });
 
     noBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      moveNoButton();
+      // تا وقتی فرار می‌کنه، کلیک رو بلاک کن؛ از بار چهارم بذار کلیک انجام بشه
+      if (moveCount < MAX_MOVES) {
+        e.preventDefault();
+        moveNoButton();
+      }
     }, { passive: false });
 
     noBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      moveNoButton();
+      if (moveCount >= MAX_MOVES) {
+        goToNoScreen();
+      } else {
+        moveNoButton();
+      }
     });
 
     window.addEventListener('resize', () => {
