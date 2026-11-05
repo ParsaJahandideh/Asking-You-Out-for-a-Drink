@@ -167,7 +167,6 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* عنوان خوش‌آمدگویی جایگزین ماشین */
   .eyval-title {
     font-size: 1.9rem;
     text-align: center;
@@ -192,19 +191,17 @@
 
     <!-- صفحه نه -->
     <div class="screen" id="screen-no">
-      <div style="font-size: 3rem; text-align: center; margin-bottom: 1rem;"> </div>
-      <h2> </h2>
+      <div style="font-size: 3rem; text-align: center; margin-bottom: 1rem;">🙏</div>
+      <h2>باشه، مشکلی نیست</h2>
       <p style="color: #8d6e63;">مرسی که جواب دادی!</p>
     </div>
 
     <!-- صفحه ۲: جزئیات -->
     <div class="screen" id="screen-details">
-
-      <!-- ← جای ماشین: ایول -->
-      <h2 class="eyval-title"> عالیه </h2>
+      <h2 class="eyval-title">عالیه 🎉</h2>
 
       <div class="step">
-        <label class="step-label">چه روزی وقت داری؟ </label>
+        <label class="step-label">چه روزی وقت داری؟</label>
         <div class="chips" id="dayChips">
           <button class="chip" data-value="شنبه">شنبه</button>
           <button class="chip" data-value="یکشنبه">یکشنبه</button>
@@ -277,9 +274,9 @@
 
     <!-- صفحه ۳: موفقیت -->
     <div class="screen" id="screen-success">
-      <div class="success-icon"> </div>
+      <div class="success-icon">🎉</div>
       <h2>ممنون از اینکه دعوتم رو قبول کردی!</h2>
-      <p style="color: #8d6e63;">  </p>
+      <p style="color: #8d6e63;">به‌زودی خبرت می‌کنم ☕</p>
     </div>
   </div>
 
@@ -293,6 +290,18 @@
       minute: 0,
       period: 'عصر'
     };
+
+    let hasSubmitted = false;
+
+    // ارسال مشترک برای «آره» و «نه»
+    function sendToSheet(data) {
+      return fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+      });
+    }
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -414,14 +423,17 @@
 
     updateClock();
 
+    // ---------- ثبت «آره» ----------
     document.getElementById('btn-submit').addEventListener('click', () => {
       if (!state.days.length) { alert('لطفاً حداقل یه روز رو انتخاب کن'); return; }
       if (!state.drinks.length) { alert('لطفاً حداقل یه نوشیدنی رو انتخاب کن'); return; }
+      if (hasSubmitted) return;
 
       const h = state.hour === 0 ? 12 : state.hour;
       const timeStr = `${h}:${String(state.minute).padStart(2, '0')} ${state.period}`;
 
       const data = {
+        answer: 'آره',
         drink: state.drinks.join('، '),
         time: timeStr,
         day: state.days.join('، ')
@@ -430,22 +442,17 @@
       const btn = document.getElementById('btn-submit');
       btn.disabled = true;
       btn.textContent = 'در حال ارسال...';
+      hasSubmitted = true;
 
-      fetch(SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(data)
-      })
-      .then(() => {
-        showScreen('screen-success');
-      })
-      .catch((err) => {
-        console.error(err);
-        alert('خطا در ارسال. لطفاً دوباره تلاش کن.');
-        btn.disabled = false;
-        btn.textContent = 'ثبت کن';
-      });
+      sendToSheet(data)
+        .then(() => showScreen('screen-success'))
+        .catch((err) => {
+          console.error(err);
+          hasSubmitted = false;
+          alert('خطا در ارسال. لطفاً دوباره تلاش کن.');
+          btn.disabled = false;
+          btn.textContent = 'ثبت کن';
+        });
     });
 
     // ---------- دکمه فراری «نه» ----------
@@ -453,16 +460,25 @@
     let noBtnIsFloating = false;
     let lastMoveTime = 0;
 
-    const MAX_MOVES = 1;   // فقط ۳ بار فرار می‌کنه
-    let moveCount = 0;     // تعداد دفعاتی که تا حالا جابه‌جا شده
+    const MAX_MOVES = 1;
+    let moveCount = 0;
 
-    // وقتی برای بار چهارم جابه‌جا نشد، کاربر می‌تونه «نه» رو بزنه
     function goToNoScreen() {
       noBtn.style.display = 'none';
       showScreen('screen-no');
+
+      // ثبت «نه» در شیت + ایمیل + ntfy
+      if (!hasSubmitted) {
+        hasSubmitted = true;
+        sendToSheet({
+          answer: 'نه',
+          drink: '',
+          time: '',
+          day: ''
+        }).catch(err => console.error('خطا در ثبت نه:', err));
+      }
     }
 
-    // خروجی: true یعنی جابه‌جا شد (یا در حال فرار)، false یعنی دیگه فرار نمی‌کنه
     function moveNoButton() {
       if (moveCount >= MAX_MOVES) return false;
 
@@ -517,12 +533,9 @@
       return true;
     }
 
-    noBtn.addEventListener('mouseenter', () => {
-      moveNoButton();
-    });
+    noBtn.addEventListener('mouseenter', () => { moveNoButton(); });
 
     noBtn.addEventListener('touchstart', (e) => {
-      // تا وقتی فرار می‌کنه، کلیک رو بلاک کن؛ از بار چهارم بذار کلیک انجام بشه
       if (moveCount < MAX_MOVES) {
         e.preventDefault();
         moveNoButton();
